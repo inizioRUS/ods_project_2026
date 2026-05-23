@@ -1,0 +1,15 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+PyYAML==6.0.2
+numpy==2.4.4
+sentence-transformers==3.3.1
+faiss-cpu==1.9.0.post1
+rank-bm25==0.2.2
+transformers==4.47.1
+httpx==0.28.1
+orjson==3.10.12
+pytest==8.3.4
+ruff==0.8.4
