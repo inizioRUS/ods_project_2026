@@ -136,7 +136,7 @@ class RAGPipeline:
 
     @staticmethod
     def _document_as_chunk(doc_id: str, text: str, metadata: dict, chunk_index: int, chunk_id: str | None = None):
-        from app.rag.models.schemas import ChunkInput
+        from models.schemas import ChunkInput
 
         return ChunkInput(
             id=chunk_id or f"{doc_id}::chunk_{chunk_index}",

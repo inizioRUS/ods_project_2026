@@ -13,3 +13,4 @@ httpx==0.28.1
 orjson==3.10.12
 pytest==8.3.4
 ruff==0.8.4
+einops
