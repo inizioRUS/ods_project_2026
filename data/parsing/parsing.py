@@ -12,15 +12,15 @@ import requests
 
 # INPUT_PATH = Path("./data")
 # Можно указать:
-# INPUT_PATH = Path("./data/pdd.json")
-# INPUT_PATH = Path("./data/koap.json")
-INPUT_PATH = Path("data\\uk_rf.json")
+INPUT_PATH = Path("C:\\Users\\garan\\PycharmProjects\\ods_project_2026\\data\\datasets\\koap.json")
+# INPUT_PATH = Path("C:\\Users\\garan\\PycharmProjects\\ods_project_2026\\data\\datasets\\pdd.json")
+# INPUT_PATH = Path("C:\\Users\\garan\\PycharmProjects\\ods_project_2026\\data\\datasets\\uk_rf.json")
 # INPUT_PATH = Path("./data")
 
 INGEST_URL = "http://localhost:8000/v1/ingest"
 
-RESET_INDEX = True
-CHUNK = False
+RESET_INDEX = False
+CHUNK = True
 BATCH_SIZE = 100
 
 DRY_RUN = False
