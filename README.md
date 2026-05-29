@@ -1,115 +1,331 @@
 # ODS Project 2026 — Legal RAG for Russian Traffic Law
 
-Проект для построения и экспериментального улучшения RAG-системы по юридическим документам, связанным с ПДД РФ: Правила дорожного движения, КоАП РФ и отдельные статьи УК РФ.
+Проект для построения, запуска и экспериментального улучшения RAG-системы по юридическим документам, связанным с дорожным движением в РФ:
 
-Основная идея проекта — сделать модульный RAG-пайплайн, в котором можно отдельно менять и сравнивать:
+* Правила дорожного движения РФ;
+* КоАП РФ, в первую очередь нормы об административной ответственности за нарушения ПДД;
+* отдельные статьи УК РФ, связанные с ДТП, транспортными преступлениями и сопутствующими составами.
 
-* модель эмбеддингов;
-* стратегию чанкинга;
-* векторный поиск;
-* BM25-поиск;
-* fusion-алгоритм;
-* reranker;
-* генератор ответа;
-* формат промпта и цитирования.
+Основная цель проекта — сделать модульную инженерную реализацию Legal RAG, в которой можно отдельно менять и сравнивать компоненты retrieval/generation pipeline: модель эмбеддингов, стратегию чанкинга, FAISS/BM25-поиск, fusion, reranker, генератор ответа, промпты и формат цитирования.
 
-Проект подходит для экспериментов с retrieval, reranking, fine-tuning эмбеддеров и построением citation-aware юридического ассистента.
 
 ---
 
-## Возможности
+## Что умеет проект
 
-* FastAPI API для RAG-пайплайна.
-* Гибридный retrieval:
-
-  * dense retrieval через FAISS;
-  * sparse retrieval через BM25.
-* Поддержка fusion-стратегий:
+* FastAPI API для запуска RAG-пайплайна.
+* Загрузка юридических документов в индекс.
+* Chunking документов с сохранением metadata.
+* Dense retrieval через FAISS.
+* Sparse retrieval через BM25.
+* Hybrid search с fusion-стратегиями:
 
   * Reciprocal Rank Fusion;
   * weighted z-score;
   * weighted sum.
 * Reranking через Jina reranker v2.
 * Генерация ответа через Mistral / OpenAI-compatible chat completions.
-* Ответы с цитированием источников в формате `[C1]`, `[C2]`.
-* Подготовка train dataset для fine-tuning эмбеддера.
-* Validation sets для проверки качества ответов.
-* Возможность быстро отключать LLM/reranker через `noop`-провайдеры.
+* Citation-aware ответы с маркерами источников вида `[C1]`, `[C2]`.
+* Подготовка train/eval датасетов для fine-tuning эмбеддера.
+* Ноутбуки для парсинга, генерации синтетики, обучения и экспериментов.
+* Скрипты для расчёта retrieval-метрик инженерной реализации.
 
 ---
 
-## Структура проекта
+## Общая архитектура
+
+```text
+raw legal data
+    ↓
+parsing / normalization
+    ↓
+documents with metadata
+    ↓
+chunking
+    ↓
+embeddings
+    ↓
+FAISS index + BM25 index
+    ↓
+hybrid search
+    ↓
+score fusion
+    ↓
+reranking
+    ↓
+context with citations
+    ↓
+LLM generation
+    ↓
+answer + citations
+```
+
+Основная техническая реализация находится в `app/rag`.
+
+---
+
+## Структура репозитория
 
 ```text
 .
 ├── app/
-│   └── rag/
-│       ├── api/
-│       │   └── routes.py              # HTTP endpoints
-│       ├── core/
-│       │   └── config.py              # YAML + ENV конфигурация
-│       ├── models/
-│       │   └── schemas.py             # Pydantic-схемы запросов и ответов
-│       ├── pipeline/
-│       │   ├── factory.py             # сборка RAG-пайплайна
-│       │   └── rag.py                 # основной пайплайн ingest/search/generate
-│       ├── services/
-│       │   ├── chunking/              # разбиение документов на чанки
-│       │   ├── embeddings/            # E5 embedder
-│       │   ├── fulltext/              # BM25 index
-│       │   ├── generation/            # LLM generation
-│       │   ├── rerankers/             # reranker interface + implementations
-│       │   ├── vectorstores/          # FAISS vector store
-│       │   └── fusion.py              # объединение dense/sparse результатов
-│       ├── config.yaml                # основной конфиг
-│       ├── Dockerfile
-│       ├── docker-compose.yml
-│       ├── main.py                    # FastAPI app
-│       └── requirements.txt
+│   └── rag/                         # инженерная реализация RAG-сервиса
+│       ├── api/                     # HTTP endpoints
+│       ├── core/                    # конфигурация YAML + ENV
+│       ├── models/                  # Pydantic-схемы API
+│       ├── pipeline/                # сборка и выполнение RAG-пайплайна
+│       ├── services/                # chunking, embeddings, FAISS, BM25, fusion, rerank, generation
+│       ├── .env                     # локальные переменные окружения
+│       ├── config.yaml              # основной конфиг RAG-сервиса
+│       ├── Dockerfile               # Docker-образ API
+│       ├── docker-compose.yml       # запуск через Docker Compose
+│       ├── main.py                  # FastAPI application
+│       ├── pyproject.toml           # настройки Python-проекта
+│       ├── README.md                # техническое описание RAG API
+│       └── requirements.txt         # зависимости API
 │
-└── data/
-    ├── files/                         # исходные юридические документы
-    ├── build_train_dataset.py         # генерация train.jsonl
-    ├── train.jsonl                    # train dataset для эмбеддера
-    ├── koap.json                      # КоАП РФ
-    ├── uk_rf.json                     # статьи УК РФ
-    ├── validation_set_koap.json       # validation set по КоАП
-    ├── validation_set_uk_rf.json      # validation set по УК РФ
-    ├── RAG_for_law.ipynb
-    ├── finetune_embedder_legal_rag.ipynb
-    └── work_with_data.ipynb
+├── data/
+│   ├── datasets/                    # сырые и базовые юридические данные
+│   ├── generation/                  # ноутбуки для генерации/обучения/экспериментов
+│   ├── metricks/                    # скрипты и функции для расчёта метрик
+│   ├── parsing/                     # загрузка данных в инженерное решение
+│   └── train_eval_datasets/         # train/eval датасеты после разметки
+│
+├── test_requests.py                 # простой smoke-test запроса к API
+└── README.md                        # описание проекта
 ```
 
 ---
 
-## Архитектура RAG-пайплайна
+## `app/rag` — техническая реализация
 
-```text
-documents
-   ↓
-chunking
-   ↓
-embeddings
-   ↓
-FAISS index + BM25 index
-   ↓
-hybrid search
-   ↓
-score fusion
-   ↓
-reranking
-   ↓
-context building with citations
-   ↓
-LLM generation
-   ↓
-answer + citations
+Папка `app/rag` содержит всю инженерную реализацию RAG API.
+
+### Основные компоненты
+
+| Путь                               | Назначение                                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| `api/routes.py`                    | FastAPI endpoints: healthcheck, chunking, embeddings, ingest, search, generate, reset index. |
+| `core/config.py`                   | Загрузка настроек из `config.yaml` и переменных окружения.                                   |
+| `models/schemas.py`                | Pydantic DTO для запросов и ответов API.                                                     |
+| `pipeline/factory.py`              | Сборка pipeline из конфигурации.                                                             |
+| `pipeline/rag.py`                  | Основная логика `ingest → search → generate`.                                                |
+| `services/chunking/`               | Разбиение документов на чанки.                                                               |
+| `services/embeddings/`             | Обёртки над embedding-моделями, включая E5.                                                  |
+| `services/vectorstores/`           | FAISS vector store.                                                                          |
+| `services/fulltext/`               | BM25 full-text index.                                                                        |
+| `services/fusion.py`               | Объединение dense/sparse результатов.                                                        |
+| `services/rerankers/`              | Базовый интерфейс reranker, Jina v2 и noop-реализация.                                       |
+| `services/generation/`             | Базовый интерфейс генератора, Mistral/OpenAI-compatible и noop-реализация.                   |
+| `config.yaml`                      | Центральный конфиг моделей, top-k, fusion, reranker, LLM и prompt templates.                 |
+| `main.py`                          | Точка входа FastAPI.                                                                         |
+| `Dockerfile`, `docker-compose.yml` | Контейнеризация сервиса.                                                                     |
+| `requirements.txt`                 | Python-зависимости.                                                                          |
+
+### Ключевые настройки
+
+В `app/rag/config.yaml` настраиваются:
+
+* embedding model;
+* device: `cuda` или `cpu`;
+* параметры chunking;
+* top-k для semantic/BM25/final retrieval;
+* fusion method;
+* reranker provider;
+* LLM provider;
+* prompt templates;
+* директория для индексов.
+
+Пример важных параметров:
+
+```yaml
+embedding:
+  provider: "e5"
+  model_name: "intfloat/multilingual-e5-large-instruct"
+  device: "cuda"
+  normalize: true
+
+retrieval:
+  semantic_top_k: 30
+  bm25_top_k: 30
+  final_top_k: 8
+  fusion_method: "rrf"
+
+reranker:
+  provider: "jina_v2"
+  model_name: "jinaai/jina-reranker-v2-base-multilingual"
+
+llm:
+  provider: "mistral"
+  model: "mistral-large-latest"
 ```
 
-Основной pipeline реализован в:
+Для локального запуска без GPU можно поставить:
 
-```text
-app/rag/pipeline/rag.py
+```yaml
+embedding:
+  device: "cpu"
+
+reranker:
+  device: "cpu"
+```
+
+Для быстрого теста без LLM/reranker:
+
+```yaml
+reranker:
+  provider: "noop"
+
+llm:
+  provider: "noop"
+```
+
+---
+
+## `data/datasets` — сырые данные
+
+Папка содержит исходные юридические данные, из которых собирается корпус для RAG.
+
+| Файл            | Описание                                                                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `koap.json`     | Структурированные статьи КоАП РФ, связанные с нарушениями ПДД и административной ответственностью. Используется как источник документов для индекса и как база для генерации train/eval примеров. |
+| `pdd.json`      | Структурированное представление ПДД РФ: разделы, пункты, подпункты и тексты норм. Используется для загрузки ПДД в RAG и генерации вопросов по правилам дорожного движения.                        |
+| `pdd_text.docx` | Исходный Word-документ с текстом ПДД. Используется как первичный источник для парсинга в `pdd.json`.                                                                                              |
+| `uk_rf.json`    | Структурированные статьи УК РФ, связанные с ДТП, нарушениями ПДД и транспортными преступлениями. Используется для индексации и генерации train/eval данных.                                       |
+
+---
+
+## `data/generation` — ноутбуки генерации, обучения и экспериментов
+
+В этой папке лежат offline-ноутбуки. Они не являются частью production API, но нужны для подготовки данных, обучения эмбеддера и проверки идей.
+
+| Файл                                          | Описание                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RAG_for_law.ipynb`                           | Ноутбук для первичного формирования JSON из текстового документа с ПДД. Содержит парсинг `.docx`, преобразование ПДД в структурированный JSON, вывод статистики по разделам/пунктам, а также экспериментальный трёхуровневый FAISS-поиск по секциям, пунктам и подпунктам.                                  |
+| `finetune_embedder_legal_rag.ipynb`           | Ноутбук для fine-tuning embedding-модели под legal RAG. Включает загрузку train JSONL, дедупликацию позитивов для борьбы с false negatives при `MultipleNegativesRankingLoss`, альтернативную стратегию `TripletLoss`, train/eval split по уникальным позитивам и evaluation через полный retrieval-корпус. |
+| `synthetic_requests_generator_balanced.ipynb` | Ноутбук для генерации синтетических пользовательских запросов. Пайплайн включает построение таксономии реальных запросов, LLM-генерацию synthetic requests, LLM-валидацию, локальную фильтрацию дублей/PII/placeholders, repair невалидных примеров и балансировку сложности запросов.                      |
+
+---
+
+## `data/metrics` — расчёт метрик
+
+Папка содержит код для оценки качества retrieval в инженерной реализации.
+
+
+| Файл                | Описание                                                                                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `metrics.py`       | Набор переиспользуемых функций для retrieval-метрик: `precision_at_k`, `recall_at_k`, `mrr_at_k`, `ndcg_at_k`. Также содержит извлечение `source_p_num` / `doc_id` из результатов поиска.                          |
+| `count_metrics.py` | Скрипт для прогонки eval-набора через запущенный API `/v1/search`. Для каждого запроса сравнивает найденные источники с ожидаемым источником и печатает агрегированные `Recall@1`, `Recall@5`, `NDCG@1`, `NDCG@5`. |
+
+Типичный сценарий:
+
+```bash
+# 1. Запустить API
+cd app/rag
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# 2. Загрузить данные в индекс
+# см. data/parsing/parsing.py
+
+# 3. Запустить подсчёт метрик из корня репозитория
+python data/metricks/count_metricks.py
+```
+
+Перед запуском `count_metrics.py` проверь путь к eval-файлу внутри скрипта. Сейчас он может быть задан как локальный абсолютный путь разработчика, поэтому для переносимости лучше заменить его на относительный путь:
+
+```python
+data/train_evel_datasets/eval_with_source.json
+```
+
+---
+
+## `data/parsing` — загрузка данных в инженерное решение
+
+| Файл         | Описание                                                                                                                                                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parsing.py` | Универсальный парсер и загрузчик документов в RAG API. Читает JSON-файлы с ПДД/КоАП/УК РФ, преобразует их в список документов с полями `id`, `text`, `metadata`, дедуплицирует документы и отправляет батчами в endpoint `/v1/ingest`. |
+
+Что делает `parsing.py`:
+
+1. Читает один JSON-файл или все JSON-файлы из папки.
+2. Определяет тип структуры:
+
+   * ПДД через ключ `section`;
+   * КоАП/УК через ключ `articles`.
+3. Собирает нормализованный текст документа.
+4. Добавляет metadata:
+
+   * `source_type`;
+   * `source_p_num`;
+   * `section_name`;
+   * `article_num`;
+   * `part_num`;
+   * `source_file`;
+   * и другие поля.
+5. Отправляет документы в API батчами.
+
+Пример настройки перед запуском:
+
+```python
+INPUT_PATH = Path("data/datasets")
+INGEST_URL = "http://localhost:8000/v1/ingest"
+RESET_INDEX = True
+CHUNK = True
+BATCH_SIZE = 100
+```
+
+Запуск из корня репозитория:
+
+```bash
+python data/parsing/parsing.py
+```
+
+---
+
+## `data/train_evel_datasets` — датасеты после разметки
+
+Папка содержит train/eval датасеты, полученные после парсинга, разметки, генерации запросов и очистки.
+
+| Файл                        | Описание                                                                                                                                                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build_train_dataset.py`    | Скрипт сборки обучающего JSONL-датасета для fine-tuning эмбеддера. Генерирует пары/тройки вида `query`, `positive`, `negative` по ПДД, КоАП и УК.                                                                                |
+| `eval_clean.jsonl`          | Очищенный eval-набор в формате JSONL. Каждая строка содержит `query`, `positive`, `negative`. Используется для оценки retrieval/fine-tuning без грязных или неконсистентных примеров.                                            |
+| `eval_with_source.json`     | Eval-набор с ожидаемыми источниками. Используется инженерным скриптом метрик: запрос отправляется в `/v1/search`, а найденные `doc_id/source_p_num` сравниваются с эталонным `source`.                                           |
+| `pdd_validation_set.jsonl`  | Валидационный набор по ПДД. Каждая строка содержит `query`, `expected_answer`, `source_p_num`; часть записей содержит `_old_p_num` для связи со старой нумерацией пунктов.                                                       |
+| `train-2.jsonl`             | Расширенный обучающий JSONL-датасет для fine-tuning. Содержит триплеты `query`, `positive`, `negative`; используется в ноутбуке обучения как один из основных train-наборов.                                                     |
+| `train_clean.jsonl`         | Очищенный train-набор в JSONL-формате. Используется для более стабильного обучения/сравнения после фильтрации и нормализации примеров.                                                                                           |
+| `validation_set_koap.json`  | Валидационный набор по КоАП РФ: вопросы, ожидаемые ответы и/или привязки к релевантным статьям/частям. Нужен для проверки качества поиска и генерации по административной ответственности.                                       |
+| `validation_set_uk_rf.json` | Валидационный набор по УК РФ: вопросы, ожидаемые ответы и/или привязки к релевантным статьям/частям. Нужен для проверки качества поиска и генерации по уголовно-правовым нормам, связанным с ДТП и транспортными преступлениями. |
+
+---
+
+## Форматы данных
+
+### Документ для загрузки в RAG
+
+```json
+{
+  "id": "pdd:12.14",
+  "text": "ПДД РФ\n\nРаздел ...\n\nПункт 12.14\n\n...",
+  "metadata": {
+    "source_type": "pdd",
+    "source_p_num": "12.14",
+    "section_name": "Проезд пешеходных переходов...",
+    "source_file": "data/datasets/pdd.json"
+  }
+}
+```
+
+### Train JSONL для эмбеддера
+
+```json
+{"query": "Какой штраф за езду без прав?", "positive": "...релевантный фрагмент...", "negative": "...похожий, но нерелевантный фрагмент..."}
+```
+
+### Validation JSONL для ПДД
+
+```json
+{"query": "Какие документы должен иметь при себе водитель?", "expected_answer": "...", "source_p_num": "1.1.1"}
 ```
 
 ---
@@ -120,12 +336,14 @@ app/rag/pipeline/rag.py
 
 ```bash
 git clone https://github.com/inizioRUS/ods_project_2026.git
-cd ods_project_2026/app/rag
+cd ods_project_2026
 ```
 
-### 2. Создать виртуальное окружение
+### 2. Создать окружение
 
 ```bash
+cd app/rag
+
 python -m venv .venv
 source .venv/bin/activate
 ```
@@ -142,9 +360,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Настроить переменные окружения
+### 4. Настроить `.env`
 
-Создай файл `.env` в папке `app/rag`.
+Создай файл `app/rag/.env`.
 
 Минимальный пример:
 
@@ -153,30 +371,22 @@ MISTRAL_API_KEY=your_mistral_api_key
 MISTRAL_BASE_URL=https://api.mistral.ai/v1/chat/completions
 ```
 
-Если генерация через LLM пока не нужна, можно отключить её в `config.yaml`:
+Если генерация через LLM не нужна, поставь в `config.yaml`:
 
 ```yaml
 llm:
   provider: "noop"
 ```
 
-Если нет GPU, поменяй `device` с `cuda` на `cpu`:
-
-```yaml
-embedding:
-  device: "cpu"
-
-reranker:
-  device: "cpu"
-```
-
 ### 5. Запустить API
+
+Из папки `app/rag`:
 
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-После запуска Swagger UI будет доступен по адресу:
+Swagger UI:
 
 ```text
 http://localhost:8000/docs
@@ -210,20 +420,6 @@ API будет доступен на порту `8000`.
 curl http://localhost:8000/v1/health
 ```
 
-Пример ответа:
-
-```json
-{
-  "ok": true,
-  "index_size": 0,
-  "embedding_model": "intfloat/multilingual-e5-large-instruct",
-  "reranker": "jina_v2",
-  "llm": "mistral"
-}
-```
-
----
-
 ### Chunking
 
 Разбивает тексты на чанки.
@@ -242,8 +438,6 @@ curl -X POST http://localhost:8000/v1/chunk \
   }'
 ```
 
----
-
 ### Embeddings
 
 Строит embeddings для query или passage.
@@ -256,8 +450,6 @@ curl -X POST http://localhost:8000/v1/embed \
     "input_type": "query"
   }'
 ```
-
----
 
 ### Ingest
 
@@ -283,8 +475,6 @@ curl -X POST http://localhost:8000/v1/ingest \
   }'
 ```
 
----
-
 ### Search
 
 Выполняет hybrid search: FAISS + BM25 + fusion + rerank.
@@ -302,8 +492,6 @@ curl -X POST http://localhost:8000/v1/search \
   }'
 ```
 
----
-
 ### Generate
 
 Генерирует ответ на основе найденных чанков и возвращает citations.
@@ -319,8 +507,6 @@ curl -X POST http://localhost:8000/v1/generate \
   }'
 ```
 
----
-
 ### Reset index
 
 Очищает FAISS и BM25 индексы.
@@ -331,158 +517,99 @@ curl -X POST http://localhost:8000/v1/index/reset
 
 ---
 
-## Конфигурация
+## Полный сценарий работы
 
-Основной конфиг находится здесь:
+### 1. Запустить API
 
-```text
-app/rag/config.yaml
+```bash
+cd app/rag
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-В нём настраиваются:
+### 2. Подготовить путь к данным
 
-* название и версия приложения;
-* путь к индексам;
-* embedding model;
-* параметры чанкинга;
-* top-k для retrieval;
-* fusion method;
-* reranker;
-* LLM provider;
-* prompt templates.
+В `data/parsing/parsing.py` укажи:
 
-Пример важных параметров:
+```python
+INPUT_PATH = Path("data/datasets")
+RESET_INDEX = True
+CHUNK = True
+```
 
-```yaml
-embedding:
-  provider: "e5"
-  model_name: "intfloat/multilingual-e5-large-instruct"
-  device: "cuda"
-  normalize: true
+### 3. Загрузить документы в индекс
 
-retrieval:
-  semantic_top_k: 30
-  bm25_top_k: 30
-  final_top_k: 8
-  fusion_method: "rrf"
+Из корня репозитория:
 
-reranker:
-  provider: "jina_v2"
-  model_name: "jinaai/jina-reranker-v2-base-multilingual"
+```bash
+python data/parsing/parsing.py
+```
 
-llm:
-  provider: "mistral"
-  model: "mistral-large-latest"
+### 4. Проверить поиск
+
+```bash
+python test_requests.py
+```
+
+Или напрямую:
+
+```bash
+curl -X POST http://localhost:8000/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Что считается крупным ущербом?"}'
+```
+
+### 5. Посчитать метрики
+
+```bash
+python data/metricks/count_metricks.py
 ```
 
 ---
 
-## Данные
+## Fine-tuning эмбеддера
 
-В папке `data` лежат исходные юридические данные и файлы для экспериментов:
-
-* `koap.json` — статьи КоАП РФ, связанные с нарушениями ПДД;
-* `uk_rf.json` — статьи УК РФ, связанные с ДТП и транспортными преступлениями;
-* `files/pdd.json` — Правила дорожного движения РФ;
-* `train.jsonl` — triplet dataset для обучения/дообучения эмбеддера;
-* `validation_set_koap.json` — валидационный набор по КоАП;
-* `validation_set_uk_rf.json` — валидационный набор по УК РФ.
-
----
-
-## Генерация train dataset
-
-Скрипт:
-
-```text
-data/build_train_dataset.py
-```
-
-генерирует пары/тройки вида:
+Для обучения используется формат:
 
 ```json
-{
-  "query": "...",
-  "positive": "...",
-  "negative": "..."
-}
+{"query": "...", "positive": "...", "negative": "..."}
 ```
 
-Запуск из корня репозитория:
-
-```bash
-python data/build_train_dataset.py
-```
-
-Можно переопределить параметры через переменные окружения:
-
-```bash
-OUT_PATH=data/train.jsonl \
-KEEP_SEED=1 \
-MIN_LEN=60 \
-SEED=42 \
-python data/build_train_dataset.py
-```
-
----
-
-## Fine-tuning и эксперименты
-
-В проекте есть ноутбуки для работы с данными и обучения:
+Основной ноутбук:
 
 ```text
-data/work_with_data.ipynb
-data/RAG_for_law.ipynb
-data/finetune_embedder_legal_rag.ipynb
+data/generation/finetune_embedder_legal_rag.ipynb
 ```
 
----
+Основные идеи обучения:
 
-## Идеи для дальнейшего развития
-
-* Добавить offline evaluation pipeline.
-* Добавить автоматический расчёт Recall@k, MRR@k, nDCG@k.
-* Сравнить несколько embedding-моделей:
-
-  * `intfloat/multilingual-e5-large-instruct`;
-  * `BAAI/bge-m3`;
-  * Jina embeddings;
-  * fine-tuned domain-specific embedder.
-* Добавить query rewriting.
-* Добавить LLM-based query classification.
-* Добавить Learning-to-Rank слой поверх retrieval features.
-* Добавить metadata-aware scoring по разделам ПДД, статьям КоАП и УК РФ.
-* Сделать frontend/demo-интерфейс для юридического ассистента.
-* Добавить CI для lint/test.
-* Добавить Docker GPU profile.
+* использовать E5/BGE/Qwen-like embedding модели;
+* добавлять префиксы `query:` и `passage:` для E5;
+* бороться с false negatives при `MultipleNegativesRankingLoss`;
+* дедуплицировать позитивы;
+* разделять train/eval по уникальным позитивным документам;
+* оценивать retrieval на полном корпусе, а не только на маленьком eval subset;
+* сравнивать baseline и fine-tuned embedder.
 
 ---
 
-## Ограничения
+## Метрики качества
 
-* Это исследовательский проект, а не production-ready юридическая система.
-* Ответы модели не являются юридической консультацией.
-* Качество ответа зависит от качества индекса, чанкинга, retrieval и reranking.
-* Для production-сценариев нужны:
+Для оценки retrieval используются:
 
-  * актуализация правовых данных;
-  * контроль версий документов;
-  * evaluation на большом validation set;
-  * логирование запросов;
-  * мониторинг hallucinations;
-  * human review для юридически значимых ответов.
+* `Precision@k`;
+* `Recall@k`;
+* `MRR@k`;
+* `nDCG@k`.
 
----
+Инженерный скрипт `data/metricks/count_metricks.py` сейчас печатает:
 
-## Disclaimer
-
-Проект предназначен для образовательных и исследовательских целей.
-Сгенерированные ответы не должны рассматриваться как официальная юридическая консультация.
+* `Recall@1`;
+* `Recall@5`;
+* `NDCG@1`;
+* `NDCG@5`.
 
 ---
 
 ## License
 
-```text
 MIT License
-```
