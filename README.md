@@ -10,6 +10,214 @@
 
 В результате работы были получены веса дообученной [модели](https://huggingface.co/intfloat/multilingual-e5-large)
 
+## Обоснование выполнения критериев оценки проекта
+
+### 1. 2 балла — подготовка отчёта
+
+В отчёте есть все ключевые части исследовательского проекта:
+
+* постановка задачи;
+* обзор связанных работ;
+* описание корпуса и датасета;
+* описание train/eval-разметки;
+* описание RAG-подхода;
+* описание конкурентных подходов;
+* экспериментальная постановка;
+* метрики;
+* результаты;
+* ablation study;
+* анализ ограничений;
+* выводы.
+
+Отчёт также связывает инженерную реализацию с исследовательской частью: описывает dense retrieval, BM25, hybrid fusion, reranking, fine-tuning embedding-модели и итоговую конфигурацию.
+
+
+### 2. 3 балла — подготовка репозитория
+
+Пункт выполнен. Репозиторий подготовлен как воспроизводимый инженерный проект, а не просто набор ноутбуков.
+
+В репозитории есть:
+
+* основное описание проекта: https://github.com/inizioRUS/ods_project_2026/blob/main/README.md
+* инженерная реализация RAG API: https://github.com/inizioRUS/ods_project_2026/tree/main/app/rag
+* техническое описание API: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/README.md
+* конфигурация моделей, retrieval, reranker и LLM: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/config.yaml
+* FastAPI entrypoint: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/main.py
+* Dockerfile: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/Dockerfile
+* Docker Compose: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/docker-compose.yml
+* зависимости: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/requirements.txt
+* smoke-test запросов к API: https://github.com/inizioRUS/ods_project_2026/blob/main/test_requests.py
+
+Реализация разделена на модули:
+
+* API endpoints: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/api/routes.py
+* сборка pipeline: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/pipeline/factory.py
+* основной RAG pipeline: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/pipeline/rag.py
+* chunking: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/chunking/recursive.py
+* E5 embeddings: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/embeddings/e5.py
+* BM25 retrieval: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/fulltext/bm25_store.py
+* FAISS vector store: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/vectorstores/faiss_store.py
+* fusion strategies: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/fusion.py
+* reranking: https://github.com/inizioRUS/ods_project_2026/tree/main/app/rag/services/rerankers
+* generation: https://github.com/inizioRUS/ods_project_2026/tree/main/app/rag/services/generation
+
+Таким образом, репозиторий содержит код, данные, конфиги, инструкции запуска, Docker-инфраструктуру, evaluation scripts и README.
+
+### 3. 10 баллов — описание Related Work и результатов других подходов
+
+Пункт выполнен. В отчёте есть отдельный раздел **Literature review**, где описаны связанные работы и подходы, с которыми соотносится проект.
+
+В Related Work рассмотрены:
+
+* **RAG** — Lewis et al. (2020), как базовая архитектура retrieval-augmented generation;
+* **DPR** — Karpukhin et al. (2020), как dense retrieval baseline;
+* **REALM** — Guu et al. (2020), как end-to-end retrieval-augmented pretraining;
+* **FiD** — Izacard & Grave (2021), как генеративный подход к использованию нескольких retrieved passages;
+* **E5 embeddings** — Wang et al. (2024), как современная multilingual embedding-модель;
+* **FAISS** — Johnson et al. (2019), как инструмент для similarity search;
+* **BM25** — Robertson & Zaragoza (2009), как сильный sparse retrieval baseline;
+* **RRF** — Cormack et al. (2009), как один из competitive fusion-подходов;
+* **cross-encoder reranking** и **Jina reranker**, как подход к precision-oriented reranking;
+* **RAGAS / hallucination / source attribution**, как связанные методы оценки и контроля grounded generation;
+* **Self-RAG, GraphRAG, Agentic RAG**, как современные расширения RAG.
+
+В отчёте также приведены результаты других подходов из литературы
+
+### 4. 10 баллов — сбор и описание датасета и постановка задачи
+
+Пункт выполнен. В проекте собран и описан корпус для задачи Russian traffic-law QA / legal retrieval.
+
+Исходные данные лежат в папке:
+
+* https://github.com/inizioRUS/ods_project_2026/tree/main/data/datasets
+
+Конкретные файлы датасета:
+
+* ПДД РФ: https://github.com/inizioRUS/ods_project_2026/blob/main/data/datasets/pdd.json
+* исходный Word-файл с ПДД: https://github.com/inizioRUS/ods_project_2026/blob/main/data/datasets/pdd_text.docx
+* КоАП РФ: https://github.com/inizioRUS/ods_project_2026/blob/main/data/datasets/koap.json
+* УК РФ: https://github.com/inizioRUS/ods_project_2026/blob/main/data/datasets/uk_rf.json
+
+В отчёте описано, что корпус состоит из трёх источников:
+
+1. **ПДД РФ** — правила дорожного движения;
+2. **КоАП РФ, глава 12** — административная ответственность за нарушения ПДД;
+3. **УК РФ, selected subset** — уголовно-правовые статьи, связанные с ДТП и транспортными преступлениями.
+
+Также описаны:
+
+* ручное извлечение юридических норм;
+* нормализация текста;
+* юридически осмысленное chunking-разбиение;
+* сохранение metadata;
+* валидация чанков;
+* постановка retrieval-задачи;
+* train/eval split;
+* synthetic triplet dataset;
+* hard negatives.
+
+Датасеты после разметки лежат здесь:
+
+* https://github.com/inizioRUS/ods_project_2026/tree/main/data/train_eval_datasets
+
+Ключевые файлы:
+
+* train triplets: https://github.com/inizioRUS/ods_project_2026/blob/main/data/train_eval_datasets/train-2.jsonl
+* clean train: https://github.com/inizioRUS/ods_project_2026/blob/main/data/train_eval_datasets/train_clean.jsonl
+* clean eval: https://github.com/inizioRUS/ods_project_2026/blob/main/data/train_eval_datasets/eval_clean.jsonl
+* eval с источниками: https://github.com/inizioRUS/ods_project_2026/blob/main/data/train_eval_datasets/eval_with_source.json
+* validation set по ПДД: https://github.com/inizioRUS/ods_project_2026/blob/main/data/train_eval_datasets/pdd_validation_set.jsonl
+* validation set по КоАП: https://github.com/inizioRUS/ods_project_2026/blob/main/data/train_eval_datasets/validation_set_koap.json
+* validation set по УК РФ: https://github.com/inizioRUS/ods_project_2026/blob/main/data/train_eval_datasets/validation_set_uk_rf.json
+
+Сборка train dataset описана в скрипте:
+
+* https://github.com/inizioRUS/ods_project_2026/blob/main/data/train_eval_datasets/build_train_dataset.py
+
+Парсинг и загрузка данных в RAG API реализованы здесь:
+
+* https://github.com/inizioRUS/ods_project_2026/blob/main/data/parsing/parsing.py
+
+Постановка задачи: по русскоязычному пользовательскому вопросу система должна найти релевантный юридический chunk из ПДД, КоАП или УК РФ и поднять его как можно выше в выдаче. Основные метрики — Recall@1, Recall@5 и nDCG@5, так как генератор получает только top-k найденных фрагментов.
+
+### 5. 10 баллов — разработка и описание подхода и конкурентных подходов
+
+Пункт выполнен. В проекте разработан modular Legal RAG pipeline.
+
+Основной подход включает:
+
+1. загрузку юридических документов;
+2. chunking;
+3. dense retrieval через multilingual E5;
+4. sparse retrieval через BM25;
+5. hybrid search;
+6. fusion стратегиями RRF, weighted z-score и weighted sum;
+7. cross-encoder reranking через Jina reranker v2;
+8. generation через Mistral / OpenAI-compatible API;
+9. citation-aware ответы с маркерами источников.
+
+Код подхода:
+
+* RAG pipeline: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/pipeline/rag.py
+* конфигурация подхода: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/config.yaml
+* dense embeddings: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/embeddings/e5.py
+* FAISS: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/vectorstores/faiss_store.py
+* BM25: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/fulltext/bm25_store.py
+* fusion: https://github.com/inizioRUS/ods_project_2026/blob/main/app/rag/services/fusion.py
+* reranking: https://github.com/inizioRUS/ods_project_2026/tree/main/app/rag/services/rerankers
+* generation: https://github.com/inizioRUS/ods_project_2026/tree/main/app/rag/services/generation
+
+Конкурентные подходы явно описаны и сравнены:
+
+* BM25 only;
+* dense retrieval без BM25 и reranking;
+* dense + BM25 + RRF;
+* dense + BM25 + weighted z-score;
+* dense + BM25 + weighted sum;
+* fine-tuned dense retriever;
+* fine-tuned dense + BM25;
+* fine-tuned dense + BM25 + fusion + reranking;
+* reranker-only / reranker average configuration.
+
+Экспериментальные ноутбуки:
+
+* парсинг и первичный RAG по ПДД: https://github.com/inizioRUS/ods_project_2026/blob/main/data/generation/RAG_for_law.ipynb
+* fine-tuning embedder: https://github.com/inizioRUS/ods_project_2026/blob/main/data/generation/finetune_embedder_legal_rag.ipynb
+* генерация synthetic requests: https://github.com/inizioRUS/ods_project_2026/blob/main/data/generation/synthetic_requests_generator_balanced.ipynb
+
+Метрики и evaluation:
+
+* reusable metrics: https://github.com/inizioRUS/ods_project_2026/blob/main/data/metrics/metrics.py
+* прогон eval через API: https://github.com/inizioRUS/ods_project_2026/blob/main/data/metrics/count_metrics.py
+
+### 6. До 15 дополнительных баллов — лучший результат / SoTA на своём датасете
+
+
+Лучшая конфигурация:
+
+* fine-tuned multilingual-e5-large;
+* BM25;
+* weighted z-score fusion;
+* Jina reranker v2.
+
+Результаты лучшей конфигурации:
+
+* Recall@1 = 0.8288;
+* Recall@5 = 0.9730;
+* nDCG@1 = 0.8288;
+* nDCG@5 = 0.9695.
+
+Сравнение с baselines показывает улучшение:
+
+* BM25 only: Recall@1 = 0.5676, Recall@5 = 0.7928;
+* dense retrieval без BM25/rerank: Recall@1 = 0.5676, Recall@5 = 0.8108;
+* fine-tuned dense без BM25/rerank: Recall@1 = 0.6396, Recall@5 = 0.8649;
+* fine-tuned dense + BM25 + weighted z-score: Recall@1 = 0.7027, Recall@5 = 0.9009;
+* fine-tuned dense + BM25 + weighted z-score + rerank: Recall@1 = 0.8288, Recall@5 = 0.9730.
+
+Это показывает, что итоговая система превосходит конкурентные конфигурации на том же датасете и может быть заявлена как лучший известный результат на данном benchmark.
+
+
 ---
 
 ## Что умеет проект
